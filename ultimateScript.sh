@@ -6,16 +6,17 @@ run() {
 #	auditing
 #	cron
 #	hacking_tools
-#	firewall
+#	services
 #	sysCtl
 	users
 #	media
 }
 
 starter() {
-	echo "Welcome to the Ultimate Script \n"
+	echo "Welcome to the Ultimate Script"
 
 	echo "Configuring aliases..."
+	#Just in case they set any trick aliases
 	unalias -a
 	alias ll='ls -lh'
 	alias ls='ls --color=auto'
@@ -25,26 +26,30 @@ starter() {
 }
 
 apt() {
+	#Set a secure sources file for apt using the backup
 	echo "Updating..."
 	cp "/etc/apt/sources.bak" "/etc/apt/sourceslist"
-	apt-get update && apt-get upgrade
 }
 
 auditing() {
+	#Download package for auditing
 	apt-get install auditd
 	auditctl -e 1
 }
 
 cron() {
+	#Only allow root access to crontabs
 	crontab -r
 	rm -f cron.deny at.deny
 	echo root > cron.allow
 	echo root > at.allow
 	
+	#There shouldn't be anything in rc.local
 	echo "exit 0" > /etc/rc.local
 }
 
 hacking_tools() {
+	#All dem packages doe...
 	echo "Basically removing everything in kali linux..."
 	apt-get autoremove --purge -y
 		airbase-ng acccheck ace-voip amap apache-users arachni android-sdk apktool arduino armitage asleap automater
@@ -74,39 +79,48 @@ hacking_tools() {
 		zaproxy
 }
 
-firewall() {
+services() {
+	#Installs clean version of ufw then enables
 	apt-get autoremove --purge -y ufw
 	apt-get install ufw
 	ufw enable
 
+	#Configures ssh
 	read -p "Is ssh a required service: " ssh
-	echo $ssh
 	apt-get autoremove --purge -y ssh
 	if [ $ssh="y" ]; then
 		apt-get install ssh
 		cp "lib/sshd_config" "/etc/ssh/sshd_config"
+		cp "lib/ssh_config" "/etc/ssh/ssh_config"
 		ufw allow 22
+		service restart ssh
 	else
 		ufw deny 22
 	fi
 
+	#Configures ftp
 	read -p "Is ftp a required service: " ftp
 	apt-get autoremove --purge -y ftp
 	if [ $ftp="y" ]; then
 		apt-get install ftp
-		cp "lib/vsftpd.conf" "/etc/vsftpd/vsftpd.conf"
+		cp "lib/vsftpd.conf" "/etc/vsftpd.conf"
 		ufw allow 21
+		service restart vsftpd
 	else
 		ufw deny 21
 	fi
+	service restart ftp
+
 }
 
 sysCtl() {
+	#Uses klaver's super secure sysctl configs
 	cp "lib/klaver" "/etc/sysctl.conf"
 	sysctl -p
 }
 
 users() {
+	#Installs clean libpam with secure configs
 	echo "Setting password policy..."
 	apt-get autoremove --purge -y libpam-cracklib
 	apt-get install libpam-cracklib
@@ -120,6 +134,7 @@ users() {
 #		read -p "Add user: " newUser
 #	done
 
+	#Copy all users from userList.txt DO NOT INCLUDE YOURSELF
 	echo "Setting secure passwords..."
 	users="lib/userList.txt"
 	while IFS= read user; do
@@ -128,18 +143,28 @@ users() {
 		echo -e 'Cyb3rP@triot!' | passwd $user
 		echo "Password set for $line"
 	done < "$users"
+
+	#Checks for possible hidden users and sends data to ans
+	echo "Checking for UID 0..."
+	awk -F: '($3 == "0") {print}' /etc/passwd >> ans/rootUser.txt
 }
 
 media() {
 	echo "Finding possible media files..."
 
 	touch mediaFiles.txt
-	echo "Possible Media Files" >> lib/mediaFiles.txt
-	find /home | grep "*.mp3" >> lib/mediaFiles.txt
-	find /home | grep "*.jpeg" >> lib/mediaFiles.txt
-	find /home | grep "*.png" >> lib/mediaFiles.txt
-	find /home | grep "*.gif" >> lib/mediaFiles.txt
-	find /home | grep "*.txt" >> lib/mediaFiles.txt
+	echo "Possible Media Files" >> ans/mediaFiles.txt
+	find /home | grep "*.mp3" >> ans/mediaFiles.txt
+	find /home | grep "*.jpeg" >> ans/mediaFiles.txt
+	find /home | grep "*.png" >> ans/mediaFiles.txt
+	find /home | grep "*.gif" >> ans/mediaFiles.txt
+	find /home | grep "*.txt" >> ans/mediaFiles.txt
+}
+
+ender() {
+	#Miscellaneous
+	apt-get update && apt-get upgrade
+	passwd -l root
 }
 
 run
