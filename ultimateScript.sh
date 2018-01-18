@@ -1,15 +1,15 @@
 #!/bin/bash
 
 run() {
-	starter
-	apt
-	auditing
-	cron
-	hacking_tools
-	firewall
-	sysCtl
+#	starter
+#	apt
+#	auditing
+#	cron
+#	hacking_tools
+#	firewall
+#	sysCtl
 	users
-	media
+#	media
 }
 
 starter() {
@@ -115,16 +115,17 @@ users() {
 	echo "allow-guest = false" >> /etc/lightdm/lightdm.conf
 
 #	read -p "Add user: " newUser
-#	while [ "$newUser"!="n" ] do;
+#	while [ "$newUser" != "n" ]; do
 #		useradd $newUser
+#		read -p "Add user: " newUser
 #	done
 
 	echo "Setting secure passwords..."
-	users = "lib/userList.txt"
-	cat users | while read $line
-	do
-		useradd $line
-		echo 'Cyb3rP@triot!' | passwd --stdin $line
+	users="lib/userList.txt"
+	while IFS= read user; do
+		echo "$user"
+		useradd $user
+		echo -e 'Cyb3rP@triot!' | passwd $user
 		echo "Password set for $line"
 	done < "$users"
 }
