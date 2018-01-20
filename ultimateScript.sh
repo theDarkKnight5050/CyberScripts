@@ -15,6 +15,11 @@ run() {
 starter() {
 	echo "Welcome to the Ultimate Script"
 
+	if [[ $EUID -ne 0 ]]; then
+   echo "Run as root"
+   exit 1
+  fi
+
 	echo "Configuring aliases..."
 	#Just in case they set any trick aliases
 	unalias -a
@@ -23,12 +28,16 @@ starter() {
 	alias vi='vim '
 	alias c='clear'
 	alias d='/usr/local/bin/chkdomain $@'
+
+	cp /etc/environment $(pwd)/environment
+	echo "PATH=\"/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\"" > /etc/environment
+	echo "Finished cleaning the PATH"
 }
 
 auditing() {
 	#Download package for auditing
 	echo "Installing auditing tools..."
-	apt-get install -y auditd
+	apt install -y auditd >> /dev/null
 	auditctl -e 1
 }
 
@@ -112,7 +121,7 @@ hacking_tools() {
 		w3af webscarab webshag webshells webslayer websploit weevely wfuzz wifi-honey wifitap wifite wireshark winexe wpscan wordlists wol-e
 		xspy xplico xsser
 		yara yersinia
-		zaproxy
+		zaproxy >> /dev/null
 }
 
 media() {
@@ -130,15 +139,15 @@ media() {
 services() {
 	#Installs clean version of ufw then enables
 	echo "Enabling firewall"
-	apt-get autoremove --purge -y ufw
-	apt-get install ufw
+	apt-get autoremove --purge -y ufw >> /dev/null
+	apt install -y ufw >> /dev/null
 	ufw enable
 
 	#Configures ssh
 	read -p "Is ssh a required service: " ssh
-	apt-get autoremove --purge -y ssh
+	apt-get autoremove --purge -y ssh >> /dev/null
 	if [ $ssh="y" ]; then
-		apt-get install ssh
+		apt install ssh >> /dev/null
 		cp "lib/sshd_config" "/etc/ssh/sshd_config"
 		cp "lib/ssh_config" "/etc/ssh/ssh_config"
 		ufw allow 22
@@ -154,22 +163,22 @@ services() {
 		ufw allow 21
 		service restart vsftpd
 	else
-		apt-get autoremove --purge -y vsftpd
+		apt-get autoremove --purge -y vsftpd >> /dev/null
 		ufw deny 21
 	fi
 	service restart ftp
 
 	read -p "Is apache a required service: " apache
-	apt-get autoremove --purge -y apache2
+	apt-get autoremove --purge -y apache2 >> /dev/null
 	if[ $apache="y" ]; then
-		apt-get install apparmor
+		apt-get install -y apparmor >> /dev/null
 }
 
 users() {
 	#Installs clean libpam with secure configs
 	echo "Setting password policy..."
-	apt-get autoremove --purge -y libpam-cracklib
-	apt-get install libpam-cracklib
+	apt-get autoremove --purge -y libpam-cracklib >> /dev/null
+	apt-get install -y libpam-cracklib >> /dev/null
 	cp "lib/common-password" "/etc/pam.d/common-password"
 	cp "lib/common-auth" "/etc/pam.d/common-auth"
 	echo "allow-guest = false" >> /etc/lightdm/lightdm.conf
@@ -225,6 +234,16 @@ misc() {
 	chmod 600 /etc/gshadow
 	chown root:root /etc/gshadow
 	chown root:root /etc/fstab
+
+	echo "# control-alt-delete - emergency keypress handling
+	#
+	# This task is run whenever the Control-Alt-Delete key combination is
+	# pressed, and performs a safe reboot of the machine.
+	description	\"emergency keypress handling\"
+	author		\"Scott James Remnant <scott@netsplit.com>\"
+	start on control-alt-delete
+	task
+	exec false" > /etc/init/control-alt-delete.conf
 }
 
 run
