@@ -1,15 +1,15 @@
 #!/bin/bash
 
 run() {
-#	starter
-#	apt
-#	auditing
-#	cron
-#	hacking_tools
-#	services
-#	sysCtl
+	starter
+	auditing
+	configs
+	cron
+	hacking_tools
+	media
+	services
 	users
-#	media
+	misc
 }
 
 starter() {
@@ -25,25 +25,61 @@ starter() {
 	alias d='/usr/local/bin/chkdomain $@'
 }
 
-apt() {
-	#Set a secure sources file for apt using the backup
-	echo "Updating..."
-	cp "/etc/apt/sources.bak" "/etc/apt/sourceslist"
-}
-
 auditing() {
 	#Download package for auditing
-	apt-get install auditd
+	echo "Installing auditing tools..."
+	apt-get install -y auditd
 	auditctl -e 1
+}
+
+configs() {
+	#Set a secure sources file for apt using the backup
+	echo "Securing apt source"
+	sed -i 's/APT::Periodic::Update-Package-Lists "0";/APT::Periodic::Update-Package-Lists "1";/g' /etc/apt/apt.conf.d/10periodic
+	sed -i 's/APT::Periodic::Download-Upgradeable-Packages "0";/APT::Periodic::Download-Upgradeable-Packages "1";/g' /etc/apt/apt.conf.d/10periodic
+	sed -i 's/APT::Periodic::AutocleanInterval "0";/APT::Periodic::AutocleanInterval "7";/g' /etc/apt/apt.conf.d/10periodic
+	sed -i 's/APT::Periodic::Unattended-Upgrade "0";/APT::Periodic::Unattended-Upgrade "1";/g' /etc/apt/apt.conf.d/10periodic
+	rm -f /etc/apt/sources.list
+	touch /etc/apt/sources.list
+	echo -e "deb http://us.archive.ubuntu.com/ubuntu/ trusty main restricted universe multiverse" >> /etc/apt/sources.list
+	echo -e "deb http://us.archive.ubuntu.com/ubuntu/ trusty-updates main restricted universe multiverse" >> /etc/apt/sources.list
+	echo -e "deb http://security.ubuntu.com/ubuntu/ trusty-security universe main restricted multiverse" >> /etc/apt/sources.list
+	echo -e "deb http://us.archive.ubuntu.com/ubuntu/ trusty-backports main restricted universe multiverse" >> /etc/apt/sources.list
+	echo -e "deb http://us.archive.ubuntu.com/ubuntu/ trusty-proposed universe main restricted multiverse" >> /etc/apt/sources.list
+	echo -e "deb http://extras.ubuntu.com/ubuntu trusty main" >> /etc/apt/sources.list
+	echo -e "deb http://archive.canonical.com/ubuntu trusty partner" >> /etc/apt/sources.list
+	echo -e "deb-src http://archive.canonical.com/ubuntu trusty partner" >> /etc/apt/sources.list
+	rm -rf /etc/apt/sources.list.d/*
+
+	#Configures sysctl according to klaver
+	echo "Configuring systctl"
+	cp "lib/klaver" "/etc/sysctl.conf"
+	sysctl -p
+
+	#Fix sudo configurations
+	echo "Securing sudo configurations"
+	cp "lib/sudoers" "/etc/sudoers"
+	rm -rf /etc/sudoers.d
+	mkdir /etc/sudoers.d
+	passwd -l root
+
+	#Disallows guest User
+	echo "Configuring lightdm"
+	echo -e 'allow-guest=false'>> /usr/share/lightdm/lightdm.conf.d/50-unity-greeter.conf
+	echo -e 'greeter-hide-users=true' >> /usr/share/lightdm/lightdm.conf.d/50-unity-greeter.conf
+	echo -e 'greeter-show-manual-login=true' >> /usr/share/lightdm/lightdm.conf.d/50-unity-greeter.conf
+	sed -i '/autologin-user/d' /etc/lightdm/lightdm.conf
+	sed -i '/autologin-user/d' /usr/share/lightdm/lightdm.conf.d/50-unity-greeter.conf
 }
 
 cron() {
 	#Only allow root access to crontabs
+	echo "Doing some stuff to cron and rc.local..."
 	crontab -r
 	rm -f cron.deny at.deny
 	echo root > cron.allow
 	echo root > at.allow
-	
+
 	#There shouldn't be anything in rc.local
 	echo "exit 0" > /etc/rc.local
 }
@@ -79,8 +115,21 @@ hacking_tools() {
 		zaproxy
 }
 
+media() {
+	echo "Finding possible media files..."
+
+	touch mediaFiles.txt
+	echo "Possible Media Files" >> ans/mediaFiles.txt
+	find /home | grep "*.mp3" >> ans/mediaFiles.txt
+	find /home | grep "*.jpeg" >> ans/mediaFiles.txt
+	find /home | grep "*.png" >> ans/mediaFiles.txt
+	find /home | grep "*.gif" >> ans/mediaFiles.txt
+	find /home | grep "*.txt" >> ans/mediaFiles.txt
+}
+
 services() {
 	#Installs clean version of ufw then enables
+	echo "Enabling firewall"
 	apt-get autoremove --purge -y ufw
 	apt-get install ufw
 	ufw enable
@@ -100,23 +149,20 @@ services() {
 
 	#Configures ftp
 	read -p "Is ftp a required service: " ftp
-	apt-get autoremove --purge -y ftp
 	if [ $ftp="y" ]; then
-		apt-get install ftp
 		cp "lib/vsftpd.conf" "/etc/vsftpd.conf"
 		ufw allow 21
 		service restart vsftpd
 	else
+		apt-get autoremove --purge -y vsftpd
 		ufw deny 21
 	fi
 	service restart ftp
 
-}
-
-sysCtl() {
-	#Uses klaver's super secure sysctl configs
-	cp "lib/klaver" "/etc/sysctl.conf"
-	sysctl -p
+	read -p "Is apache a required service: " apache
+	apt-get autoremove --purge -y apache2
+	if[ $apache="y" ]; then
+		apt-get install apparmor
 }
 
 users() {
@@ -149,22 +195,42 @@ users() {
 	awk -F: '($3 == "0") {print}' /etc/passwd >> ans/rootUser.txt
 }
 
-media() {
-	echo "Finding possible media files..."
+misc() {
+	rm /etc/init/control-alt-delete.conf
+	echo > /etc/securetty
 
-	touch mediaFiles.txt
-	echo "Possible Media Files" >> ans/mediaFiles.txt
-	find /home | grep "*.mp3" >> ans/mediaFiles.txt
-	find /home | grep "*.jpeg" >> ans/mediaFiles.txt
-	find /home | grep "*.png" >> ans/mediaFiles.txt
-	find /home | grep "*.gif" >> ans/mediaFiles.txt
-	find /home | grep "*.txt" >> ans/mediaFiles.txt
-}
-
-ender() {
-	#Miscellaneous
-	apt-get update && apt-get upgrade
-	passwd -l root
+	echo "Fixing permissions..."
+	chown root:root /etc/anacrontab
+	chmod og-rwx /etc/anacrontab
+	chown root:root /etc/crontab
+	chmod og-rwx /etc/crontab
+	chown root:root /etc/cron.hourly
+	chmod og-rwx /etc/cron.hourly
+	chown root:root /etc/cron.daily
+	chmod og-rwx /etc/cron.daily
+	chown root:root /etc/cron.weekly
+	chmod og-rwx /etc/cron.weekly
+	chown root:root /etc/cron.monthly
+	chmod og-rwx /etc/cron.monthly
+	chown root:root /etc/cron.d
+	chmod og-rwx /etc/cron.d
+	chown root:root /var/spool/cron/crontabs
+	chmod og-rwx /var/spool/cron/crontabs
+	chmod 644 /etc/passwd
+	chown root:root /etc/passwd
+	chmod 644 /etc/group
+	chown root:root /etc/group
+	chmod 600 /etc/shadow
+	chown root:root /etc/shadow
+	chmod 600 /etc/gshadow
+	chown root:root /etc/gshadow
+	chown root:root /etc/fstab
 }
 
 run
+apt-get update && apt-get upgrade
+
+echo "All done couple reminders: "
+echo "1) Forensics questions (honestly if you forgot this i dont think i can help you)"
+echo "2) nmap and ps aux"
+echo "PS Christo dw i got john"
