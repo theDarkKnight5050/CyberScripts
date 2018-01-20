@@ -13,14 +13,17 @@ run() {
 }
 
 starter() {
-	echo "Welcome to the Ultimate Script"
-
 	if [[ $EUID -ne 0 ]]; then
-   echo "Run as root"
-   exit 1
+    echo "Run as root"
+    exit 1
   fi
 
+	echo "Welcome to the Ultimate Script"
+
+	apt install gnustep-gui-runtime >> /dev/null
+
 	echo "Configuring aliases..."
+	say "Configuring aliases"
 	#Just in case they set any trick aliases
 	unalias -a
 	alias ll='ls -lh'
@@ -32,11 +35,13 @@ starter() {
 	cp /etc/environment $(pwd)/environment
 	echo "PATH=\"/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\"" > /etc/environment
 	echo "Finished cleaning the PATH"
+	say "Finished cleaning PATH"
 }
 
 auditing() {
 	#Download package for auditing
 	echo "Installing auditing tools..."
+	say "Installed auditing tools"
 	apt install -y auditd >> /dev/null
 	auditctl -e 1
 }
@@ -44,6 +49,7 @@ auditing() {
 configs() {
 	#Set a secure sources file for apt using the backup
 	echo "Securing apt source"
+	say "Configuring apt"
 	sed -i 's/APT::Periodic::Update-Package-Lists "0";/APT::Periodic::Update-Package-Lists "1";/g' /etc/apt/apt.conf.d/10periodic
 	sed -i 's/APT::Periodic::Download-Upgradeable-Packages "0";/APT::Periodic::Download-Upgradeable-Packages "1";/g' /etc/apt/apt.conf.d/10periodic
 	sed -i 's/APT::Periodic::AutocleanInterval "0";/APT::Periodic::AutocleanInterval "7";/g' /etc/apt/apt.conf.d/10periodic
@@ -62,11 +68,13 @@ configs() {
 
 	#Configures sysctl according to klaver
 	echo "Configuring systctl"
+	say "Praising klaver"
 	cp "lib/klaver" "/etc/sysctl.conf"
 	sysctl -p
 
 	#Fix sudo configurations
 	echo "Securing sudo configurations"
+	say "Disabling god mode"
 	cp "lib/sudoers" "/etc/sudoers"
 	rm -rf /etc/sudoers.d
 	mkdir /etc/sudoers.d
@@ -74,6 +82,7 @@ configs() {
 
 	#Disallows guest User
 	echo "Configuring lightdm"
+	say "Disabling guest account"
 	echo -e 'allow-guest=false'>> /usr/share/lightdm/lightdm.conf.d/50-unity-greeter.conf
 	echo -e 'greeter-hide-users=true' >> /usr/share/lightdm/lightdm.conf.d/50-unity-greeter.conf
 	echo -e 'greeter-show-manual-login=true' >> /usr/share/lightdm/lightdm.conf.d/50-unity-greeter.conf
@@ -84,6 +93,7 @@ configs() {
 cron() {
 	#Only allow root access to crontabs
 	echo "Doing some stuff to cron and rc.local..."
+	say "Doing some stuff to cron and rc"
 	crontab -r
 	rm -f cron.deny at.deny
 	echo root > cron.allow
@@ -96,6 +106,7 @@ cron() {
 hacking_tools() {
 	#All dem packages doe...
 	echo "Basically removing everything in kali linux..."
+	say "Removing all the things"
 	apt-get autoremove --purge -y
 		airbase-ng acccheck ace-voip amap apache-users arachni android-sdk apktool arduino armitage asleap automater
 		backdoor-factory bbqsql bed beef bing-ip2hosts binwalk blindelephant bluelog bluemaho bluepot blueranger bluesnarfer bulk-extractor	bully burpsuite braa
@@ -139,6 +150,7 @@ media() {
 services() {
 	#Installs clean version of ufw then enables
 	echo "Enabling firewall"
+	say "Enabling firewall"
 	apt-get autoremove --purge -y ufw >> /dev/null
 	apt install -y ufw >> /dev/null
 	ufw enable
